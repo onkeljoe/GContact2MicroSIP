@@ -1,33 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics.Eventing.Reader;
-using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Xml.Linq;
 
 namespace GContact2MicroSIP
 {
     public partial class Form1 : Form
     {
-        private List<Entry> _entries;
-
-        public List<Entry> Entries
-        {
-            get
-            {
-                return _entries;
-            }
-
-            set
-            {
-                _entries = value;
-            }
-        }
+        public List<Entry> Entries { get; set; }
 
         public Form1 ()
         {
@@ -37,9 +20,10 @@ namespace GContact2MicroSIP
 
         private void OpenInputFileButton_Click (object sender, EventArgs e)
         {
-            OpenFileDialog ofd = new OpenFileDialog
+            StatusBox.Text = string.Empty;
+            var ofd = new OpenFileDialog
             {
-                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyComputer),
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 DefaultExt = ".vcf",
                 Filter = "Adressbuch (*.vcf)|*.vcf"
             };
@@ -72,12 +56,16 @@ namespace GContact2MicroSIP
                 {
                     if (line.StartsWith("FN"))
                     {
-                        name = line.Substring(3);
+                        name = line.Substring(line.LastIndexOf(":", StringComparison.Ordinal) + 1);
                         countNames++;
                     }
                     if (!line.StartsWith("TEL") || line.Contains("FAX")) continue;
-                    var telType = line.Substring(9, 4);
-                    var telNumber = line.Substring(13);
+                    var telType = string.Empty;
+                    if (line.LastIndexOf("TYPE", StringComparison.Ordinal) > 0)
+                    {
+                        telType = line.Substring(line.LastIndexOf("TYPE", StringComparison.Ordinal)+5,4);
+                    }
+                    var telNumber = line.Substring(line.LastIndexOf(":", StringComparison.Ordinal)+1);
                     Entries.Add(new Entry($"{name} {telType}", telNumber));
                     countNumbers++;
                 }
@@ -89,21 +77,16 @@ namespace GContact2MicroSIP
 
         private void OpenContactFileButton_Click (object sender, EventArgs e)
         {
-            //string path = System.Environment
             var sfd = new SaveFileDialog
             {
-                //InitialDirectory = @"\%appdata\%\\MicroSIP",
                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)+@"\MicroSIP",
                 DefaultExt = ".xml",
-                Filter = "XML Datei (*.xml)|*.xml"
+                Filter = "XML Datei (*.xml)|*.xml",
+                FileName = "Contacts.xml"
             };
             var result = sfd.ShowDialog();
             if (result == DialogResult.OK)
             {
-                if (File.Exists(sfd.FileName))
-                {
-                    //Altdaten einlesen
-                }
                 SaveFileName.Text = sfd.FileName;
                 ReadContactsButton.Enabled = true;
             }
@@ -111,6 +94,91 @@ namespace GContact2MicroSIP
             {
                 MessageBox.Show("Sie haben keine Datei ausgewählt.");
             }
+        }
+
+        private void ReadContactsButton_Click(object sender, EventArgs e)
+        {
+            var myFileName = SaveFileName.Text;
+            if (File.Exists(myFileName))
+            {
+                XDocument document = XDocument.Load(myFileName);
+                var docCount = document.Descendants().Count()-1;
+                StatusBox.Text += $" {docCount} alte Datensätze gefunden.";
+            }
+            WriteContactsButton.Enabled = true;
+        }
+
+        private void WriteContactsButton_Click (object sender, EventArgs e)
+        {
+            var myFileName = SaveFileName.Text;
+            var xmlTree = new XElement("contacts");
+            XDocument document;
+            if (File.Exists(myFileName))
+            {
+                document = XDocument.Load(myFileName);
+                xmlTree = document.Element("contacts") ?? new XElement("contacts");
+                File.Move(myFileName,myFileName+DateTime.Now.ToString("yyyyMMddHHmmss"));
+            }
+            var element = new XElement("contact", string.Empty);
+            foreach (var entry in Entries)
+            {
+                element.SetAttributeValue("name", entry.Name);
+                element.SetAttributeValue("number", entry.Phone);
+                element.SetAttributeValue("firstname", string.Empty);
+                element.SetAttributeValue("lastname", string.Empty);
+                element.SetAttributeValue("phone", string.Empty);
+                element.SetAttributeValue("mobile", string.Empty);
+                element.SetAttributeValue("email", string.Empty);
+                element.SetAttributeValue("address", string.Empty);
+                element.SetAttributeValue("city", string.Empty);
+                element.SetAttributeValue("state", string.Empty);
+                element.SetAttributeValue("zip", string.Empty);
+                element.SetAttributeValue("comment", string.Empty);
+                element.SetAttributeValue("id", string.Empty);
+                element.SetAttributeValue("info", string.Empty);
+                element.SetAttributeValue("presence", entry.Presence);
+                element.SetAttributeValue("directory", entry.Directory);
+                element.SetAttributeValue("starred", 0);
+                xmlTree.Add(element);
+                element = new XElement("contact", string.Empty);
+            }
+            document = new XDocument(xmlTree) { Declaration = new XDeclaration("1.0", "utf-8", "true") };
+            //document = new XDocument(xmlTree) { Declaration = new XDeclaration("1.0", string.Empty, "true") };
+            document.Save(myFileName);
+            WriteContactsButton.Enabled = false;
+            SaveFileName.Enabled = false;
+            SaveFileName.Text = string.Empty;
+            OpenContactFileButton.Enabled = false;
+            ImportFileName.Text = string.Empty;
+            ReadFileButton.Enabled = false;
+            ReadContactsButton.Enabled = false;
+            StatusBox.Text = "Datei erfolgreich geschrieben!";
+        }
+
+        private void ResetButton_Click (object sender, EventArgs e)
+        {
+            WriteContactsButton.Enabled = false;
+            SaveFileName.Enabled = false;
+            SaveFileName.Text = string.Empty;
+            OpenContactFileButton.Enabled = false;
+            ImportFileName.Text = string.Empty;
+            ReadFileButton.Enabled = false;
+            ReadContactsButton.Enabled = false;
+            StatusBox.Text = string.Empty;
+        }
+
+        private void label1_Click (object sender, EventArgs e)
+        {
+        }
+
+        private void linkLabel1_LinkClicked (object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            Process.Start("http://www.flaticon.com/");
+        }
+
+        private void linkLabel2_LinkClicked (object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            Process.Start("http://www.onkeljoe.de/google-kontakte-nach-microsip-importieren-ein-tool-zum-konvertieren/");
         }
     }
 }

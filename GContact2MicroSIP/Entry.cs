@@ -1,13 +1,16 @@
-﻿using System;
-using System.IO;
+﻿using System.Xml.Serialization;
 
 namespace GContact2MicroSIP
 {
     public class Entry
     {
+        [XmlAttribute("name")]
         public string Name { get; set; }
+        [XmlAttribute("number")]
         public string Phone { get; set; }
+        [XmlAttribute("presence")]
         public int Presence { get; set; }
+        [XmlAttribute("directory")]
         public int Directory { get; set; }
 
         public Entry (string name, string phone, int presence, int directory)
