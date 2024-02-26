@@ -17,4 +17,7 @@ Program Icon made by Freepik from [Flaticon](https://www.flaticon.com)
 ## Development environment:
 
 Programming language: C#
+
 Integrated Development Environment: Microsoft Visual Studio 2017 (later 2019)
+
+Target Operating System: Windows 7, 8, 10, 11
